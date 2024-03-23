@@ -59,7 +59,7 @@ class SeedlingDrawer:
         Key Bindings
 
         - 'r': Set the drawing color to RAIZ PRIMARIA.
-        - 'g': Set the drawing color to HIPOCOTILO.
+        - 'h': Set the drawing color to HIPOCOTILO.
         - 'd': Activate drawing mode.
         - 'e': Activate erasing mode.
         - 'x': Terminate the draw and return None.
@@ -80,6 +80,7 @@ class SeedlingDrawer:
 
         nh = int(proportion * h)
         nw = int(proportion * w)
+        print(f'new height: {nh}, new width: {nw}')
 
         resized_input_image = cv2.resize(input_image, (nw, nh), interpolation=cv2.INTER_AREA)
         resized_overlay = cv2.resize(overlay, (nw, nh), interpolation=cv2.INTER_AREA)
@@ -237,5 +238,3 @@ class SeedlingDataset:
 
             cv2.imwrite(in_img_path, in_img)
             cv2.imwrite(out_img_path, out_img)
-
-
