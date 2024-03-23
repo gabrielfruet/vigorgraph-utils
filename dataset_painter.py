@@ -1,7 +1,11 @@
+from cv2.typing import MatLike
+from pprint import pprint
 import numpy as np
 import cv2
 import glob
 import os
+
+print = pprint
 
 mode = False
 
@@ -35,7 +39,7 @@ class SeedlingDrawer:
         return draw
 
     @staticmethod
-    def image_drawer(pathname, proportion=0.3) -> tuple[cv2.Mat, cv2.Mat] | None:
+    def image_drawer(pathname, proportion=0.3) -> tuple[MatLike, MatLike] | None:
         """
         Display an image and enable drawing on it with mouse interactions.
 
@@ -54,12 +58,12 @@ class SeedlingDrawer:
 
         Key Bindings
 
-        - 'r': Set the drawing color to red.
-        - 'g': Set the drawing color to green.
+        - 'r': Set the drawing color to RAIZ PRIMARIA.
+        - 'g': Set the drawing color to HIPOCOTILO.
         - 'd': Activate drawing mode.
         - 'e': Activate erasing mode.
         - 'x': Terminate the draw and return None.
-        - 'ESC': Exit the drawing window.
+        - 's': Exit the drawing window.
 
         Returns
 
@@ -72,7 +76,7 @@ class SeedlingDrawer:
         input_image = cv2.imread(pathname)
         overlay = np.zeros_like(input_image)
 
-        h, w, c = input_image.shape
+        h, w, _ = input_image.shape
 
         nh = int(proportion * h)
         nw = int(proportion * w)
@@ -90,20 +94,26 @@ class SeedlingDrawer:
             cv2.imshow('image', blended)
 
             k = cv2.waitKey(1) & 0xFF
-            if k == ord('r'):
+            if k == ord('h'):
+                print("Drawing HIPOCOTILO")
                 SeedlingDrawer.color = (0, 0, 255)  # Red
                 SeedlingDrawer.erase = False
-            elif k == ord('g'):
+            elif k == ord('r'):
+                print("Drawing RAIZ PRIMARIA")
                 SeedlingDrawer.color = (0, 255, 0)  # Green
                 SeedlingDrawer.erase = False
             elif k == ord('d'):
+                print("Drawing")
                 SeedlingDrawer.erase = False  # Activate drawing
             elif k == ord('e'):
+                print("Erasing")
                 SeedlingDrawer.erase = True  # Activate erasing
             elif k == ord('x'):
+                print("Exiting WITHOUT saving the image")
                 cv2.destroyAllWindows()
                 return None
-            elif k == 27:  # ESC key to exit
+            elif k == ord('s'):  # ESC key to exit
+                print("Save and go to the next IMAGE")
                 break
 
         cv2.destroyAllWindows()
@@ -120,6 +130,12 @@ class SeedlingDataset:
         self.OUT_SUFFIX = out_suffix
         self.REDO = redo
 
+    def make_directories(self):
+        os.makedirs(os.path.join(self.OUTPUT_FOLDER), exist_ok=True)
+        for folder in [self.IN_SUFFIX, self.OUT_SUFFIX]:
+            os.makedirs(os.path.join(self.OUTPUT_FOLDER, folder), exist_ok=True)
+
+
     def already_done(self):
         return set(map(
             lambda x: self.INPUT_FOLDER + x.replace(f'_{self.IN_SUFFIX}.{self.EXTENSION}', '') + '.' + self.EXTENSION,
@@ -127,7 +143,9 @@ class SeedlingDataset:
         ))
 
     def run(self):
-        images_path = set(glob.glob(os.path.join(self.INPUT_FOLDER, '*')))
+        expandable_path = os.path.join(self.INPUT_FOLDER, '*')
+        images_path = set(glob.glob(expandable_path))
+        self.make_directories()
         for img_path in images_path:
             img_name = os.path.split(img_path)[1]
 
@@ -145,8 +163,8 @@ class SeedlingDataset:
             cv2.imwrite(out_img_path, out_img)
 
 
-input_folder = '../plantulas_soja/1'
-output_folder = '../dataset/plantulas_soja/1'
+input_folder = './plantulas_soja/1'
+output_folder = './dataset/plantulas_soja/1'
 
 sd = SeedlingDataset(input_folder, output_folder)
 sd.run()
