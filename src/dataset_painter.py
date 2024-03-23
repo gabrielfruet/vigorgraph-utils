@@ -1,4 +1,5 @@
 from cv2.typing import MatLike
+from typing import Iterable, Set
 from pprint import pprint
 import numpy as np
 import cv2
@@ -8,7 +9,6 @@ import os
 print = pprint
 
 mode = False
-
 class SeedlingDrawer:
     drawing = False  # True if mouse is pressed
     color = (0, 0, 255)  # Default to red
@@ -147,6 +147,8 @@ class SeedlingDataset:
         self.IN_SUFFIX = in_suffix
         self.OUT_SUFFIX = out_suffix
         self.REDO = redo
+        self.OUTPUT_INPUT_PATH = os.path.join(self.OUTPUT_FOLDER, self.IN_SUFFIX)
+        self.OUTPUT_GD_PATH = os.path.join(self.OUTPUT_FOLDER, self.OUT_SUFFIX)
 
     def make_directories(self):
         os.makedirs(os.path.join(self.OUTPUT_FOLDER), exist_ok=True)
@@ -154,21 +156,74 @@ class SeedlingDataset:
             os.makedirs(os.path.join(self.OUTPUT_FOLDER, folder), exist_ok=True)
 
 
-    def already_done(self):
+    def already_done(self) -> Set[str]:
+        """
+        Return all the names with extension of the already done images
+
+        Returns: 
+        - `Set[str]`
+        """
         return set(map(
-            lambda x: self.INPUT_FOLDER + x.replace(f'_{self.IN_SUFFIX}.{self.EXTENSION}', '') + '.' + self.EXTENSION,
-            glob.glob(os.path.join(self.OUTPUT_FOLDER, f'*_{self.IN_SUFFIX}.{self.EXTENSION}'))
+            lambda path: os.path.split(path)[1],  
+            glob.glob(os.path.join(self.OUTPUT_INPUT_PATH, '*'))
         ))
 
-    def run(self):
+    def ground_truth_path_for(self, img_name) -> str:
+        """
+        Provides the full ground truth path for a img named `img_name`
+
+        Parameters:
+        - img_name: str as Path
+            Name of the image with extension (e.g. .jpg,.png, ...)
+
+        Returns:
+        - str as Path
+            Path to the desired ground truth image 
+        """
+        return os.path.join(self.OUTPUT_INPUT_PATH, img_name)
+
+    def input_path_for(self, img_name) -> str:
+        """
+        Provides the full input path for a img named `img_name`
+
+        Parameters:
+        - img_name: str as Path
+            Name of the image with extension (e.g. .jpg,.png, ...)
+
+        Returns:
+        - str as Path
+            Path to the desired input image 
+        """
+        return os.path.join(self.OUTPUT_GD_PATH, img_name)
+
+    def input_images_path(self):
+        """
+        Return the set of images paths that are on `INPUT_PATH`.
+
+        Returns:
+        - `Set[str]` of Paths
+        """
         expandable_path = os.path.join(self.INPUT_FOLDER, '*')
         images_path = set(glob.glob(expandable_path))
+        return images_path
+
+    def todo_images(self) -> Iterable[str]:
+        """
+        Return the set of images paths that are willing to be done.
+
+        Returns:
+        - `[str]` of Paths
+        """
+        images_path = self.input_images_path()
+        done_images = self.already_done()
+        return filter(lambda path: os.path.split(path)[1] not in done_images,images_path)
+
+
+
+    def run(self):
         self.make_directories()
-        for img_path in images_path:
+        for img_path in self.todo_images():
             img_name = os.path.split(img_path)[1]
-            img_name_wo_extensions, dot_extension = os.path.splitext(img_name)
-            print(img_name_wo_extensions)
-            print([img_name, dot_extension])
 
             io = SeedlingDrawer.image_drawer(img_path)
 
@@ -177,15 +232,10 @@ class SeedlingDataset:
 
             in_img, out_img = io
 
-            in_img_path = os.path.join(self.OUTPUT_FOLDER, self.IN_SUFFIX, f'{img_name_wo_extensions}{dot_extension}')
-            out_img_path = os.path.join(self.OUTPUT_FOLDER, self.OUT_SUFFIX, f'{img_name_wo_extensions}{dot_extension}')
+            in_img_path = self.ground_truth_path_for(img_name)
+            out_img_path = self.input_path_for(img_name)
 
             cv2.imwrite(in_img_path, in_img)
             cv2.imwrite(out_img_path, out_img)
 
 
-input_folder = './plantulas_soja/1'
-output_folder = './dataset/plantulas_soja/1'
-
-sd = SeedlingDataset(input_folder, output_folder)
-sd.run()
