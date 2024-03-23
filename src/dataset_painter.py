@@ -89,32 +89,50 @@ class SeedlingDrawer:
         cv2.namedWindow('image')
         cv2.setMouseCallback('image', draw)
 
+        want_to_exit = False
+        want_to_save = True
+
         while True:
             blended = cv2.addWeighted(resized_input_image, 0.5, resized_overlay, 1 - 0.5, 0)
             cv2.imshow('image', blended)
-
             k = cv2.waitKey(1) & 0xFF
             if k == ord('h'):
                 print("Drawing HIPOCOTILO")
                 SeedlingDrawer.color = (0, 0, 255)  # Red
                 SeedlingDrawer.erase = False
+                want_to_exit = False
+                want_to_save = False
             elif k == ord('r'):
                 print("Drawing RAIZ PRIMARIA")
                 SeedlingDrawer.color = (0, 255, 0)  # Green
                 SeedlingDrawer.erase = False
+                want_to_exit = False
+                want_to_save = False
             elif k == ord('d'):
                 print("Drawing")
                 SeedlingDrawer.erase = False  # Activate drawing
+                want_to_exit = False
+                want_to_save = False
             elif k == ord('e'):
                 print("Erasing")
                 SeedlingDrawer.erase = True  # Activate erasing
+                want_to_exit = False
+                want_to_save = False
             elif k == ord('x'):
-                print("Exiting WITHOUT saving the image")
-                cv2.destroyAllWindows()
-                return None
+                if not want_to_exit:
+                    print("If you REALLY want to exit, press 'x' again.")
+                    want_to_exit = True
+                else:
+                    print("Exiting WITHOUT saving the image")
+                    cv2.destroyAllWindows()
+                    return None
             elif k == ord('s'):  # ESC key to exit
-                print("Save and go to the next IMAGE")
-                break
+                if not want_to_save:
+                    print("If you REALLY want to save, press 's' again.")
+                    want_to_exit = True
+                else:
+                    print("Save and go to the next IMAGE")
+                    break
 
         cv2.destroyAllWindows()
         return resized_input_image, resized_overlay
