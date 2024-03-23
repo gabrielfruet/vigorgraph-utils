@@ -3,6 +3,7 @@ import cv2
 import glob
 import os
 
+mode = False
 
 class SeedlingDrawer:
     drawing = False  # True if mouse is pressed
@@ -34,7 +35,7 @@ class SeedlingDrawer:
         return draw
 
     @staticmethod
-    def image_drawer(pathname, proportion=0.3) -> [np.ndarray, np.ndarray]:
+    def image_drawer(pathname, proportion=0.3) -> tuple[cv2.Mat, cv2.Mat] | None:
         """
         Display an image and enable drawing on it with mouse interactions.
 
@@ -89,9 +90,7 @@ class SeedlingDrawer:
             cv2.imshow('image', blended)
 
             k = cv2.waitKey(1) & 0xFF
-            if k == ord('m'):
-                mode = not mode
-            elif k == ord('r'):
+            if k == ord('r'):
                 SeedlingDrawer.color = (0, 0, 255)  # Red
                 SeedlingDrawer.erase = False
             elif k == ord('g'):
