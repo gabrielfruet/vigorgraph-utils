@@ -1,6 +1,5 @@
 from dataset_painter import SeedlingDataset
 
-
 INPUT_FOLDER = './plantulas_soja/1'
 OUTPUT_FOLDER = './dataset/plantulas_soja/1'
 

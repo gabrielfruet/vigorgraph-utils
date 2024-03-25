@@ -1,4 +1,6 @@
-# 🌱 VigorGraph utility routines
+# 🌱 VigorGraph
+
+## Utility routines
 
 ## 🛠 Installation
 
