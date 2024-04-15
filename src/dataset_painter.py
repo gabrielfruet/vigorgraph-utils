@@ -15,7 +15,7 @@ class SeedlingDrawer:
     erase = False  # True if erasing
 
     @staticmethod
-    def create_drawer_callback(overlay_img, input_img, zoom_window_name):
+    def create_drawer_callback(overlay_img, input_img, zoom_window_name, scale=3, img_size=384):
         # Mouse callback function
         def draw(event, x, y, flags, param):
             new_x = x
@@ -33,8 +33,8 @@ class SeedlingDrawer:
 
                 if event == cv2.EVENT_MOUSEMOVE:
                     # Define the size of the zoomed window
-                    zoom_size = 384  # Zoom window will be 100x100 pixels
-                    zoom_scale = 3   # Zoom scale
+                    zoom_size = img_size  # Zoom window will be 100x100 pixels
+                    zoom_scale = scale   # Zoom scale
 
                     to_zoom_img = cv2.addWeighted(input_img, 0.5, overlay_img, 1 - 0.5, 0)
 
