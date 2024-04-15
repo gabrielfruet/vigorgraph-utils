@@ -48,9 +48,9 @@ if __name__ == '__main__':
 `INPUT_FOLDER` should be where your images are located, so they would be under `$INPUT_FOLDER/your_image.jpeg`
 
 
-`OUTPUT_FOLDER` should be where your images will be expored. Primarily they will be exported to `$INPUT_FOLDER/input` and `$INPUT_FOLDER/ground_truth`, such that the `input` would contain the images that you annotated and `ground_truth` would contain the annotations to those images.
+`OUTPUT_FOLDER` should be where your images will be expored. Primarily they will be exported to `$OUTPUT_FOLDER/input` and `$OUTPUT_FOLDER/ground_truth`, such that the `input` would contain the images that you annotated and `ground_truth` would contain the annotations to those images.
 
-Some `$INPUT_FOLDER/input/myimage.jpeg`, would have a correspondent annnotation with this name `$INPUT_FOLDER/ground_truth/myimage.jpeg`.
+Some `$OUTPUT_FOLDER/input/myimage.jpeg`, would have a correspondent annnotation with this name `$OUTPUT_FOLDER/ground_truth/myimage.jpeg`.
 
 
 Key Bindings
