@@ -15,7 +15,7 @@ class SeedlingDrawer:
     erase = False  # True if erasing
 
     @staticmethod
-    def create_drawer_callback(img):
+    def create_drawer_callback(overlay_img, input_img, zoom_window_name):
         # Mouse callback function
         def draw(event, x, y, flags, param):
             new_x = x
@@ -24,17 +24,41 @@ class SeedlingDrawer:
             if event == cv2.EVENT_LBUTTONDOWN:
                 SeedlingDrawer.drawing = True
             elif event == cv2.EVENT_MOUSEMOVE:
+                
                 if SeedlingDrawer.drawing:
                     if SeedlingDrawer.erase:
-                        cv2.circle(img, (new_x, new_y), 5, (0, 0, 0), -1)
+                        cv2.circle(overlay_img, (new_x, new_y), 5, (0, 0, 0), -1)
                     else:
-                        cv2.circle(img, (new_x, new_y), 1, SeedlingDrawer.color, -1)
+                        cv2.circle(overlay_img, (new_x, new_y), 1, SeedlingDrawer.color, -1)
+
+                if event == cv2.EVENT_MOUSEMOVE:
+                    # Define the size of the zoomed window
+                    zoom_size = 384  # Zoom window will be 100x100 pixels
+                    zoom_scale = 3   # Zoom scale
+
+                    to_zoom_img = cv2.addWeighted(input_img, 0.5, overlay_img, 1 - 0.5, 0)
+
+                    # Extract the sub-region of the image
+                    top_left_x = max(0, x - zoom_size // (2 * zoom_scale))
+                    top_left_y = max(0, y - zoom_size // (2 * zoom_scale))
+                    bottom_right_x = min(to_zoom_img.shape[1], x + zoom_size // (2 * zoom_scale))
+                    bottom_right_y = min(to_zoom_img.shape[0], y + zoom_size // (2 * zoom_scale))
+
+
+                    sub_img = to_zoom_img[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
+
+                    # Resize sub-region to zoom in
+                    sub_img_zoomed = cv2.resize(sub_img, (zoom_size, zoom_size), interpolation=cv2.INTER_LINEAR)
+
+                    # Show zoomed image in new window
+                    cv2.imshow(zoom_window_name, sub_img_zoomed)
+
             elif event == cv2.EVENT_LBUTTONUP:
                 SeedlingDrawer.drawing = False
                 if SeedlingDrawer.erase:
-                    cv2.circle(img, (new_x, new_y), 10, (0, 0, 0), -1)
+                    cv2.circle(overlay_img, (new_x, new_y), 10, (0, 0, 0), -1)
                 else:
-                    cv2.circle(img, (new_x, new_y), 1, SeedlingDrawer.color, -1)
+                    cv2.circle(overlay_img, (new_x, new_y), 1, SeedlingDrawer.color, -1)
 
         return draw
 
@@ -85,7 +109,7 @@ class SeedlingDrawer:
         resized_input_image = cv2.resize(input_image, (nw, nh), interpolation=cv2.INTER_AREA)
         resized_overlay = cv2.resize(overlay, (nw, nh), interpolation=cv2.INTER_AREA)
 
-        draw = SeedlingDrawer.create_drawer_callback(resized_overlay)
+        draw = SeedlingDrawer.create_drawer_callback(resized_overlay, resized_input_image, 'zoomed')
 
         cv2.namedWindow('image')
         cv2.setMouseCallback('image', draw)
