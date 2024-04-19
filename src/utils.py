@@ -1,5 +1,8 @@
+import logging
 import time
 from functools import wraps
+
+logging.basicConfig(level=logging.INFO)
 
 def time_function(f):
     @wraps(f)
@@ -8,7 +11,7 @@ def time_function(f):
         result = f(*args, **kwargs)
         end_time = time.time() * 1000    # Convert end time to milliseconds
         duration = end_time - start_time
-        print(f"The function '{f.__name__}' took {duration:.4f} ms to execute.")
+        logging.info(f"The function '{f.__name__}' took {duration:.4f} ms to execute.")
         return result
     return wrapper
 

@@ -1,11 +1,11 @@
+import logging
+import atexit
+from pprint import pprint
 import cv2 as cv
-from matplotlib import pyplot as plt
-from skimage.util import img_as_ubyte, img_as_float, img_as_bool
+from skimage.util import img_as_ubyte, img_as_bool
 from skimage.morphology import skeletonize
-from example import edge_linking as edl
 from numba import njit
 import numpy as np
-import atexit
 import utils
 
 atexit.register(cv.destroyAllWindows)
@@ -34,8 +34,8 @@ def find_neighbours(i: int,j: int, size: np.ndarray):
     pos = np.array([j,i])
     directions = np.array([[1,-1], [1,0], [1,1],[0,-1],[0,1],[-1,-1],[-1,0],[-1,1]])
     valid_neighbours = []
-    for dir in directions:
-        new_pos = dir + pos
+    for direc in directions:
+        new_pos = direc + pos
         x,y = new_pos
         if x < size[1] and x >= 0 and y < size[0] and y >= 0:
             valid_neighbours.append(new_pos)
@@ -101,8 +101,8 @@ def _ramer_douglas_peucker_rec(points: np.ndarray, epsilon: float) -> np.ndarray
         result1 = ramer_douglas_peucker(points[0:max_i+1], epsilon)
         result2 = ramer_douglas_peucker(points[max_i:-1], epsilon)
         return np.r_[result1, result2]
-    else:
-        return points[[0,-1]]
+
+    return points[[0,-1]]
 
 @utils.time_function
 def ramer_douglas_peucker(points: np.ndarray, epsilon: float) -> np.ndarray:
@@ -115,7 +115,7 @@ def draw_lines(img, pts, color):
 
     for i in range(n):
         j,i = pts[i]
-        img[i,j] = (203, 192, 255)
+        img[i,j] = (255,255,255)
 
 def find_background_mask(img, color_range):
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
@@ -135,16 +135,13 @@ def find_background_color_range(img, border_size=10):
     left_border = hsv_image[:, :border_size].reshape((-1,3))
     right_border = hsv_image[:, -border_size:].reshape((-1,3))
 
-    # Combine border pixels into one array
     borders = np.r_[top_border, bottom_border, left_border, right_border]
 
-    # Calculate the average HSV value of the borders
     average_hsv = np.mean(borders, axis=0)
     avg_hue = np.mean(average_hsv[0])
     avg_sat = np.mean(average_hsv[1])
     avg_val = np.mean(average_hsv[2])
 
-    # Define a reasonable range around the average
     hue_range = 40
     sat_range = 80
     val_range = 80
@@ -157,6 +154,7 @@ def find_background_color_range(img, border_size=10):
 SHOW_IMAGE = True
 
 def run():
+    logging.getLogger().setLevel(logging.WARNING)
     gd_img = cv.imread(GD_IMG_PATH)
     input_img = cv.imread(INPUT_IMG_PATH)
 
@@ -165,46 +163,18 @@ def run():
     hipocotilo = apply_skeletonize(hipocotilo)
     raiz_prim_links = edge_linking(raiz_prim)
     hipocotilo_links = edge_linking(hipocotilo)
-    #raiz_prim_links = edl(raiz_prim)
-    #hipocotilo_links = edl(hipocotilo)
 
     linked_raiz_prim = cv.cvtColor(np.zeros_like(raiz_prim), cv.COLOR_GRAY2BGR)
     linked_hipocotilo = cv.cvtColor(np.zeros_like(hipocotilo), cv.COLOR_GRAY2BGR)
+
+    raiz_prim_links_rdp = [ramer_douglas_peucker(link,epsilon=5) for link in raiz_prim_links]
+    hipocotilo_links_rdp = [ramer_douglas_peucker(link,epsilon=5) for link in hipocotilo_links]
     
-    """
-    fig, ax = plt.subplots(1)
-    for i in range(len(raiz_prim_links)):
-        rplx, rply = hipocotilo_links[i][:, 0], hipocotilo_links[i][:, 1]
-        ax.plot(rplx, rply)
-
-    plt.show()
-    """
-
-
-
-    """
-    fig, ax = plt.subplots(1)
-    linkx, linky = links[0][:,0], links[0][:,1]
-    resultx, resulty = result[:,0], result[:,1]
-
-    ax.plot(linkx,linky,c='b')
-    ax.plot(resultx,resulty,c='r')
-    plt.show()
-    """
-    for rdplink in map(lambda link: ramer_douglas_peucker(link,epsilon=5), raiz_prim_links):
+    for rdplink in raiz_prim_links_rdp:
         draw_lines(linked_raiz_prim, rdplink, color=(0,255,0))
 
-    for rdplink in map(lambda link: ramer_douglas_peucker(link,epsilon=5), hipocotilo_links):
+    for rdplink in hipocotilo_links_rdp:
         draw_lines(linked_hipocotilo, rdplink, color=(0,0,255))
-
-    """
-    for link in raiz_prim_links:
-        draw_lines(linked_raiz_prim, link, color=(0,255,0))
-
-    for link in hipocotilo_links:
-        draw_lines(linked_hipocotilo, link, color=(0,0,255))
-
-    """
 
     color_range = find_background_color_range(input_img)
 
@@ -214,9 +184,15 @@ def run():
 
     input_img_wo_background = cv.cvtColor(input_img_wo_background, cv.COLOR_GRAY2BGR)
 
-    cv.drawContours(input_img_wo_background, contours, -1, (255,0,255), 0)
+    cv.drawContours(input_img_wo_background, contours, -1, (255,0,255), 0);
 
-    summed = cv.bitwise_or(linked_hipocotilo, linked_raiz_prim)
+    output_json = {
+        'Links': {
+            'Hipocotilo': [link.tolist() for link in hipocotilo_links_rdp],
+            'Raiz Primaria': [link.tolist() for link in raiz_prim_links_rdp]
+        }
+    }
+    pprint(output_json)
 
     if SHOW_IMAGE:
         while True:
@@ -224,8 +200,6 @@ def run():
             cv.imshow('hip', hipocotilo)
             cv.imshow('linked_raiz_prim', linked_raiz_prim)
             cv.imshow('linked_hipocotilo', linked_hipocotilo)
-            #cv.imshow('summed', summed)
-            #cv.imshow('no background input', input_img_wo_background)
             cv.imshow('input', input_img)
 
             key = cv.waitKey(1) & 0xFF
