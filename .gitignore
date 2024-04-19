@@ -4,3 +4,4 @@ plantulas_soja
 dataset/*
 dataset
 src/__pycache__
+.clangd

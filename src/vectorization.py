@@ -1,10 +1,12 @@
 import cv2 as cv
-import skimage as ski
 from matplotlib import pyplot as plt
 from skimage.util import img_as_ubyte, img_as_float, img_as_bool
 from skimage.morphology import skeletonize
+from example import edge_linking as edl
+from numba import njit
 import numpy as np
 import atexit
+import utils
 
 atexit.register(cv.destroyAllWindows)
 
@@ -27,6 +29,21 @@ def apply_skeletonize(gray_img):
     skeleton_ubyte = img_as_ubyte(skeleton)
     return skeleton_ubyte
 
+@njit
+def find_neighbours(i: int,j: int, size: np.ndarray):
+    pos = np.array([j,i])
+    directions = np.array([[1,-1], [1,0], [1,1],[0,-1],[0,1],[-1,-1],[-1,0],[-1,1]])
+    valid_neighbours = []
+    for dir in directions:
+        new_pos = dir + pos
+        x,y = new_pos
+        if x < size[1] and x >= 0 and y < size[0] and y >= 0:
+            valid_neighbours.append(new_pos)
+    
+    return valid_neighbours
+
+@utils.time_function
+@njit
 def edge_linking(A: np.ndarray):
     """
 
@@ -35,34 +52,25 @@ def edge_linking(A: np.ndarray):
     """
     A = A.copy()
     links = []
-    n,m = A.shape
-    def neighbours(i,j):
-        pos = np.array([i,j])
-        directions = np.array([[1,-1], [1,0], [1,1],[0,-1],[0,1],[-1,-1],[-1,0],[-1,1]])
-        valid_neighbours = []
-        for dir in directions:
-            new_pos = dir + pos
-            if np.all(new_pos < [n,m]) and np.all(new_pos >= [0,0]):
-                valid_neighbours.append(new_pos)
-        
-        return valid_neighbours
+    n,m =  A.shape
+    size = np.array(A.shape)
 
     for i in range(n):
         for j in range(m):
             if A[i,j] == 255:
                 A[i,j] = 0
                 k,l = i,j
-                new_link = [(i,j)]
+                new_link = [(j,i)]
                 available_paths=True
                 while available_paths:
-                    for p,q in neighbours(k,l):
+                    available_paths = False
+                    for q,p in find_neighbours(k,l,size):
                         if A[p,q] == 255:
                             A[p,q] = 0
-                            new_link.append((p,q))
+                            new_link.append((q,p))
                             k,l = p,q
+                            available_paths = True
                             break
-                    else:
-                        available_paths = False
 
                 links.append(np.array(new_link))
 
@@ -74,45 +82,40 @@ def paint_links(img, links, color):
             img[*pos] = color
     return img
 
-def ramer_douglas_peucker(points, epsilon) -> np.ndarray:
+def _ramer_douglas_peucker_rec(points: np.ndarray, epsilon: float) -> np.ndarray:
     if len(points) < 3: return points
     first, last = points[[0,-1]]
-    x0,y0 = first
-    x1,y1 = last
+    y1,x1 = last
 
-    delta_x, delta_y = last - first
-    m = delta_y/delta_x
+    delta_y, delta_x = last - first
+    m = delta_y/(delta_x + 1e-10)
     a = m
     b = -1
     c = y1 - m*x1
 
-    distances = np.abs(np.dot(points, [a,b]) + c) /  np.sqrt(a**2 + b**2)
+    distances = np.abs(np.dot(points, [b,a]) + c) /  np.sqrt(a**2 + b**2)
     max_i = np.argmax(distances)
     max_dist = distances[max_i]
 
     if max_dist > epsilon:
-        result1 = ramer_douglas_peucker(points[0:max_i], epsilon)
+        result1 = ramer_douglas_peucker(points[0:max_i+1], epsilon)
         result2 = ramer_douglas_peucker(points[max_i:-1], epsilon)
         return np.r_[result1, result2]
     else:
         return points[[0,-1]]
 
-def simple_link(link, ax=plt):
-    linkx = link[:, 0]
-    linky = link[:, 1]
-
-    freq = np.fft.fftfreq(len(linky), 1)
-    #ax.plot(freq, np.fft.fft(linky))
-
-    ax.plot(linkx)
+@utils.time_function
+def ramer_douglas_peucker(points: np.ndarray, epsilon: float) -> np.ndarray:
+    return _ramer_douglas_peucker_rec(points, epsilon)
 
 def draw_lines(img, pts, color):
     n = len(pts)
     for i in range(n-1):
-        cv.line(img, pts[i, ::-1], pts[i+1, ::-1], color=color)
+        cv.line(img, pts[i], pts[i+1], color=color)
 
     for i in range(n):
-        img[*pts[i]] = (203, 192, 255)
+        j,i = pts[i]
+        img[i,j] = (203, 192, 255)
 
 def find_background_mask(img, color_range):
     hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
@@ -162,9 +165,22 @@ def run():
     hipocotilo = apply_skeletonize(hipocotilo)
     raiz_prim_links = edge_linking(raiz_prim)
     hipocotilo_links = edge_linking(hipocotilo)
+    #raiz_prim_links = edl(raiz_prim)
+    #hipocotilo_links = edl(hipocotilo)
 
     linked_raiz_prim = cv.cvtColor(np.zeros_like(raiz_prim), cv.COLOR_GRAY2BGR)
     linked_hipocotilo = cv.cvtColor(np.zeros_like(hipocotilo), cv.COLOR_GRAY2BGR)
+    
+    """
+    fig, ax = plt.subplots(1)
+    for i in range(len(raiz_prim_links)):
+        rplx, rply = hipocotilo_links[i][:, 0], hipocotilo_links[i][:, 1]
+        ax.plot(rplx, rply)
+
+    plt.show()
+    """
+
+
 
     """
     fig, ax = plt.subplots(1)
@@ -181,6 +197,15 @@ def run():
     for rdplink in map(lambda link: ramer_douglas_peucker(link,epsilon=5), hipocotilo_links):
         draw_lines(linked_hipocotilo, rdplink, color=(0,0,255))
 
+    """
+    for link in raiz_prim_links:
+        draw_lines(linked_raiz_prim, link, color=(0,255,0))
+
+    for link in hipocotilo_links:
+        draw_lines(linked_hipocotilo, link, color=(0,0,255))
+
+    """
+
     color_range = find_background_color_range(input_img)
 
     input_img_wo_background = find_background_mask(input_img, color_range)
@@ -195,10 +220,13 @@ def run():
 
     if SHOW_IMAGE:
         while True:
+            cv.imshow('raiz_prim', raiz_prim)
+            cv.imshow('hip', hipocotilo)
             cv.imshow('linked_raiz_prim', linked_raiz_prim)
             cv.imshow('linked_hipocotilo', linked_hipocotilo)
-            cv.imshow('summed', summed)
-            cv.imshow('no background input', input_img_wo_background)
+            #cv.imshow('summed', summed)
+            #cv.imshow('no background input', input_img_wo_background)
+            cv.imshow('input', input_img)
 
             key = cv.waitKey(1) & 0xFF
 
