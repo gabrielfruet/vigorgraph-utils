@@ -1,8 +1,8 @@
 .venv
+**/__pycache__/
 plantulas_soja/*
 plantulas_soja
 dataset/*
 dataset
-src/__pycache__
 .clangd
 .pylintrc
