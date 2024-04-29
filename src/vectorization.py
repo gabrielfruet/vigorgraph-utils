@@ -82,10 +82,12 @@ def run():
     cv.drawContours(input_img_wo_background, contours, -1, (255,0,255), 0);
 
     output = {
-        'Links': {
-            'Hipocotilo': [link.tolist() for link in hipocotilo_links_rdp],
-            'Raiz Primaria': [link.tolist() for link in raiz_prim_links_rdp]
-        }
+        'links': {
+            'hipocotilo': [link.tolist() for link in hipocotilo_links_rdp],
+            'raiz_prim': [link.tolist() for link in raiz_prim_links_rdp]
+        },
+        'numero_plantulas': 20,
+        'numero_plantuas_ngerm': 2
     }
     json_output = json.dumps(output)
     pprint(json_output)
