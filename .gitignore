@@ -1,4 +1,5 @@
 .venv
+models
 **/__pycache__/
 plantulas_soja/*
 plantulas_soja
