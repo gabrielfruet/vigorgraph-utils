@@ -2,8 +2,8 @@ import logging
 import atexit
 import cv2 as cv
 import json
+from utils import line_length
 from skimage.morphology import skeletonize
-import tensorflow as tf
 from pprint import pprint
 from typing import Tuple, List
 from matplotlib import pyplot as plt
@@ -12,14 +12,14 @@ from preprocessing import split_image, apply_skeletonize, find_background_color_
 from skimage.util import img_as_ubyte, img_as_float32
 from skimage import morphology 
 from plantcv import plantcv as pcv
-from autoencoder import create_model
+from seedlings import SeedlingSolver
 import numpy as np
 
 atexit.register(cv.destroyAllWindows)
 
 SHOW_IMAGE = True
-GD_IMG_PATH = "/home/gabrielfruet/dev/python/vigorgraph/dataset/plantulas_soja/1/ground_truth/C2T1R4.jpg"
-INPUT_IMG_PATH = "/home/gabrielfruet/dev/python/vigorgraph/dataset/plantulas_soja/1/input/C2T1R4.jpg"
+GD_IMG_PATH = "/home/gabrielfruet/dev/python/vigorgraph/dataset/plantulas_soja/cultivar_2_azul/ground_truth/1712091204433.jpg"
+INPUT_IMG_PATH = "/home/gabrielfruet/dev/python/vigorgraph/dataset/plantulas_soja/cultivar_2_azul/input/1712091204433.jpg"
 WEIGHTS_PATH = "/home/gabrielfruet/dev/python/vigorgraph/models/model(1).keras"
 
 def preprocessing(img):
@@ -57,17 +57,15 @@ def paint_links(img, links, color):
             img[*pos] = color
     return img
 
-def draw_lines(img, pts, color):
+def draw_lines(img, pts, color, pt_color):
     n = len(pts)
     for i in range(n-1):
         cv.line(img, pts[i], pts[i+1], color=color)
 
     for i in range(n):
-        cv.circle(img, pts[i], 2, (255,255,255), 2)
-        j,i = pts[i]
-        img[i,j] = (255,255,255)
+        cv.circle(img, pts[i], 1, pt_color, 1)
 
-def find_lines(gd_img: np.ndarray, epsilon=5) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+def find_lines(raiz_prim: np.ndarray, hipocotilo: np.ndarray, epsilon=5) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
 
     Returns
@@ -76,9 +74,8 @@ def find_lines(gd_img: np.ndarray, epsilon=5) -> Tuple[List[np.ndarray], List[np
         1st is the Raiz Primaria links
         2nd is the Hipocotilo links
     """
-    raiz_prim, hipocotilo = split_image(gd_img)
-    raiz_prim = apply_skeletonize(raiz_prim)
-    hipocotilo = apply_skeletonize(hipocotilo)
+    raiz_prim = img_as_ubyte(pcv.morphology.prune(pcv.morphology.skeletonize(raiz_prim), size=10)[0])
+    hipocotilo = img_as_ubyte(pcv.morphology.prune(pcv.morphology.skeletonize(hipocotilo), size=10)[0])
     raiz_prim_links = edge_linking(raiz_prim)
     hipocotilo_links = edge_linking(hipocotilo)
     raiz_prim_links_rdp = [rdp(link,epsilon=epsilon) for link in raiz_prim_links]
@@ -90,33 +87,53 @@ def rm_bg(img: np.ndarray):
     color_range = find_background_color_range(img)
     input_img_wo_background = find_background_mask(img, color_range)
     return input_img_wo_background
-
-def find_seed_blobs(input_img_wo_background: np.ndarray):
-    input_img_wo_background = cv.erode(input_img_wo_background, np.ones((15,15)))
-    contours, _ = cv.findContours(input_img_wo_background, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    input_img_wo_background = cv.cvtColor(input_img_wo_background, cv.COLOR_GRAY2BGR)
-    return contours
+def find_seed_blobs(input_img_wo_background: np.ndarray, iterations=5):
+    input_img_wo_background = cv.erode(input_img_wo_background, np.ones((3,3)), iterations=iterations)
+    return cv.findContours(input_img_wo_background, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
 def run():
     logging.getLogger().setLevel(logging.WARNING)
     gd_img = cv.imread(GD_IMG_PATH)
     input_img = cv.imread(INPUT_IMG_PATH)
 
-    raiz_prim_links_rdp, hipocotilo_links_rdp = find_lines(gd_img, epsilon=40)
+    raiz_prim, hipocotilo = split_image(gd_img)
+    raiz_prim_links_rdp, hipocotilo_links_rdp = find_lines(raiz_prim, hipocotilo, epsilon=5)
+    print(len(raiz_prim_links_rdp))
+    print(len(hipocotilo_links_rdp))
 
     linked_raiz_prim = np.zeros_like(gd_img)
     linked_hipocotilo = np.zeros_like(gd_img)
-    
-    for rdplink in raiz_prim_links_rdp:
-        draw_lines(linked_raiz_prim, rdplink, color=(0,255,0))
-
-    for rdplink in hipocotilo_links_rdp:
-        draw_lines(linked_hipocotilo, rdplink, color=(0,0,255))
 
     input_img_wo_background = rm_bg(input_img)
-    contours = find_seed_blobs(input_img_wo_background)
+    contours, _ = find_seed_blobs(input_img_wo_background, iterations=7)
+    input_img_wo_background = cv.cvtColor(input_img_wo_background, cv.COLOR_GRAY2BGR)
+    input_img_wo_background[:,:,:] = (0,0,0)
 
     cv.drawContours(input_img_wo_background, contours, -1, (255,0,255), 0);
+    cotyledone = []
+    for ct in contours:
+        M = cv.moments(ct)
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        cotyledone.append((cX,cY))
+
+        input_img_wo_background = cv.circle(input_img_wo_background, (cX, cY), radius=5, color=(0,255,255), thickness=-1)
+
+    ss = SeedlingSolver(raiz_prim_links_rdp, hipocotilo_links_rdp, np.array(cotyledone))
+    seedlings = ss.match()
+
+    seedlings_drawed = np.zeros_like(input_img_wo_background)
+
+    for sdl in seedlings:
+        seedlings_drawed = sdl.draw(seedlings_drawed)
+    
+    for rdplink in raiz_prim_links_rdp:
+        draw_lines(linked_raiz_prim, rdplink, color=(0,255,0), pt_color=(0,255,0))
+        draw_lines(input_img_wo_background, rdplink, color=(0,255,0), pt_color=(0,255,0))
+
+    for rdplink in hipocotilo_links_rdp:
+        draw_lines(linked_hipocotilo, rdplink, color=(0,0,255), pt_color=(0,0,255))
+        draw_lines(input_img_wo_background, rdplink, color=(0,0,255), pt_color=(0,0,255))
 
     output = {
         'links': {
@@ -126,11 +143,16 @@ def run():
         'numero_plantulas': 20,
         'numero_plantuas_ngerm': 2
     }
-    json_output = json.dumps(output)
-    pprint(json_output)
+    #json_output = json.dumps(output)
+    #pprint(json_output)
+    raiz_prim_skeleton = pcv.morphology.prune(pcv.morphology.skeletonize(raiz_prim))[0]
+    hip_skeleton = pcv.morphology.prune(pcv.morphology.skeletonize(hipocotilo))[0]
 
     if SHOW_IMAGE:
         while True:
+            cv.imshow('seedlings_drawed', seedlings_drawed)
+            cv.imshow('raiz_prim_ske', raiz_prim_skeleton)
+            cv.imshow('hip_ske', hip_skeleton)
             cv.imshow('linked_raiz_prim', linked_raiz_prim)
             cv.imshow('linked_hipocotilo', linked_hipocotilo)
             cv.imshow('seed blobs', input_img_wo_background)
@@ -139,6 +161,8 @@ def run():
 
             if key == ord('q'):
                 break
+
+"""
 
 def with_model():
     model = create_model()
@@ -186,6 +210,7 @@ def with_model():
 
             if key == ord('q'):
                 break
+"""
 
 if __name__ == '__main__':
-    with_model()
+    run()

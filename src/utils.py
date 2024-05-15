@@ -1,5 +1,6 @@
 import logging
 import time
+import numpy as np
 from functools import wraps
 
 logging.basicConfig(level=logging.INFO)
@@ -14,4 +15,12 @@ def time_function(f):
         logging.info(f"The function '{f.__name__}' took {duration:.4f} ms to execute.")
         return result
     return wrapper
+
+def line_length(line):
+    dist = 0
+    for i in range(len(line) - 1):
+        dist += np.linalg.norm(line[i] - line[i+1])
+
+    return dist
+
 
