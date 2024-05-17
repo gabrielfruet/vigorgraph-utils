@@ -1,6 +1,7 @@
 import logging
 import time
 import numpy as np
+import cv2 as cv
 from functools import wraps
 
 logging.basicConfig(level=logging.INFO)
@@ -23,4 +24,7 @@ def line_length(line):
 
     return dist
 
-
+def draw_line(img, line, color):
+    for i in range(len(line) - 1):
+        img = cv.line(img, line[i], line[i+1], color=color)
+    return img
