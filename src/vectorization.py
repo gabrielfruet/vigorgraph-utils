@@ -21,8 +21,8 @@ atexit.register(cv.destroyAllWindows)
 
 SHOW_IMAGE = True
 DATASET_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset"
-GD_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/ground_truth/1712091560500.jpg"
-INPUT_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/input/1712091560500.jpg"
+GD_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/ground_truth/1712091560511.jpg"
+INPUT_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/input/1712091560511.jpg"
 WEIGHTS_PATH = "/home/gabrielfruet/dev/python/vigorgraph/models/model(1).keras"
 
 def draw_lines(img, pts, color, pt_color):
@@ -39,14 +39,16 @@ def find_lines(raiz_prim: np.ndarray, hipocotilo: np.ndarray, epsilon=20) -> Tup
         1st is the Raiz Primaria links
         2nd is the Hipocotilo links
     """
-    raiz_prim = img_as_ubyte(pcv.morphology.prune(pcv.morphology.skeletonize(raiz_prim), size=10)[0])
-    hipocotilo = img_as_ubyte(pcv.morphology.prune(pcv.morphology.skeletonize(hipocotilo), size=10)[0])
+    raiz_prim = img_as_ubyte(morphology.skeletonize(raiz_prim))
+    hipocotilo = img_as_ubyte(morphology.skeletonize(hipocotilo))
     raiz_prim_links = edge_linking(raiz_prim)
     hipocotilo_links = edge_linking(hipocotilo)
     raiz_prim_links_rdp = [rdp(link,epsilon=epsilon) for link in raiz_prim_links]
     hipocotilo_links_rdp = [rdp(link,epsilon=epsilon) for link in hipocotilo_links]
-    raiz_prim_links_rdp = concatenate_lines(raiz_prim_links_rdp, threshold=40)
-    hipocotilo_links_rdp = concatenate_lines(hipocotilo_links_rdp, threshold=40)
+    raiz_prim_links_rdp = [link for link in raiz_prim_links_rdp if line_length(link) > 10]
+    hipocotilo_links_rdp = [link for link in hipocotilo_links_rdp if line_length(link) > 10]
+    raiz_prim_links_rdp = concatenate_lines(raiz_prim_links_rdp, threshold=10)
+    hipocotilo_links_rdp = concatenate_lines(hipocotilo_links_rdp, threshold=10)
     return raiz_prim_links_rdp, hipocotilo_links_rdp
 
 def rm_bg(img: np.ndarray):
@@ -86,7 +88,7 @@ def run():
 
         input_img_wo_background = cv.circle(input_img_wo_background, (cX, cY), radius=5, color=(0,255,255), thickness=-1)
 
-    ss = SeedlingSolver(raiz_prim_links_rdp, hipocotilo_links_rdp, np.array(cotyledone), max_cost=150)
+    ss = SeedlingSolver(raiz_prim_links_rdp, hipocotilo_links_rdp, np.array(cotyledone), max_cost=200)
     seedlings = ss.match()
 
     seedlings_drawed = np.zeros_like(input_img_wo_background)
@@ -122,6 +124,7 @@ def run():
             cv.imshow('overlay', overlayed_img)
             cv.imshow('blob', blobs_image)
             cv.imshow('blobs', blobs_image)
+            cv.imshow('gd_img', gd_img)
             #cv.imshow('raiz_prim_ske', raiz_prim_skeleton)
             #cv.imshow('hip_ske', hip_skeleton)
             cv.imshow('linked_raiz_prim', linked_raiz_prim)

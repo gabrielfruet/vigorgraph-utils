@@ -9,19 +9,53 @@ class Seedling:
     COLOR_HIPOCOTILO = (0,0,255)
     COLOR_COTILEDONE = (0,255,255)
     def __init__(self, raiz_prim, hipocotilo, cotiledone):
-        self.raiz_prims = [raiz_prim] if raiz_prim is not None else []
-        self.hipocotilos = [hipocotilo] if hipocotilo is not None else []
+        if hipocotilo is not None and raiz_prim is not None and False:
+            hip_bound = hipocotilo[[0,-1]]
+            rp_bound = raiz_prim[[0,-1]]
+            dists = np.zeros((2,2))
+            for i in range(2):
+                for j in range(2):
+                    dist = np.linalg.norm(hip_bound[i] - rp_bound[j])
+                    dists[i,j] = dist
+
+            flat_index = np.argmin(dists)
+            row,col = np.unravel_index(flat_index, dists.shape)
+
+            #raiz_prim = np.insert(raiz_prim, hipocotilo[row], -col)
+            #hipocotilo = np.insert(hipocotilo, raiz_prim[col], -row)
+            print(row, col)
+            print(hipocotilo[row])
+            print(raiz_prim[col])
+            print(hipocotilo)
+            print(raiz_prim)
+            if col == 0:
+                raiz_prim = np.r_[[hipocotilo[row]], raiz_prim]
+            elif col == 1:
+                raiz_prim = np.r_[raiz_prim, [hipocotilo[row]]]
+
+            if row == 0:
+                hipocotilo = np.r_[[raiz_prim[col]], hipocotilo]
+            elif row == 1:
+                hipocotilo = np.r_[hipocotilo, [raiz_prim[col]]]
+
+            print(raiz_prim)
+            print(hipocotilo)
+
+
+            print(hip_bound.shape)
+            print(rp_bound.shape)
+
+        self.raiz_prim = raiz_prim 
+        self.hipocotilo = hipocotilo 
         self.cotiledone = cotiledone
 
     def draw(self, img):
         cv.circle(img, self.cotiledone, radius=5, color=Seedling.COLOR_COTILEDONE)
-        for hip in self.hipocotilos:
-            img = draw_line(img,hip,Seedling.COLOR_HIPOCOTILO)
-            img = draw_line(img, [self.cotiledone, hip[0]], color=(255,127,0))
 
-        for raiz in self.raiz_prims:
-            img = draw_line(img,raiz,Seedling.COLOR_RAIZ)
-            img = draw_line(img, [self.cotiledone, raiz[0]], color=(255,127,0))
+        for line,color in zip([self.hipocotilo, self.raiz_prim], [Seedling.COLOR_HIPOCOTILO, Seedling.COLOR_RAIZ]):
+            if line is None: continue
+            img = draw_line(img,line,color)
+            img = draw_line(img, [self.cotiledone, line[0]], color=(255,127,0))
 
         return img
 
@@ -63,8 +97,10 @@ class SeedlingBuilder:
         hipo = self.get_hipocotilo()
         anchor = None
         if hipo is None:
+            #anchor = np.array([self.get_cotiledone(), self.get_cotiledone()])
             anchor = self.get_cotiledone()
         else:
+            #anchor = hipo[[0,-1]]
             anchor = hipo[-1]
         return anchor
 
@@ -93,6 +129,7 @@ class SeedlingSolver:
         # rows are cotiledone
         # columns are hipocotilo
         costs = np.linalg.norm(expnd_hip - expnd_cot, axis=-1)
+        print(costs.shape)
         choosen_bound = np.eye(2)[np.argmin(costs,axis=-1)]
         min_costs = costs[choosen_bound.astype(bool)].reshape(costs.shape[:2])
         row_ind, col_ind = scipy.optimize.linear_sum_assignment(min_costs)
@@ -112,10 +149,10 @@ class SeedlingSolver:
         choosen_anchors = np.array([sdl.get_anchor() for sdl in self.sdl_builders])
         raiz_prim_bounds = np.array([rp[[0,-1]] for rp in self.raiz_prim_links])
         expnd_rp = raiz_prim_bounds[None, ...]
-        expnd_cot = choosen_anchors[:, None, None]
-        # rows are choosen hipocotilos
+        expnd_anchor = choosen_anchors[:, None, None]
+        # rows are choosen anchors
         # columns are raiz prim
-        costs = np.linalg.norm(expnd_rp - expnd_cot, axis=-1)
+        costs = np.linalg.norm(expnd_rp - expnd_anchor, axis=-1)
         choosen_bound = np.eye(2)[np.argmin(costs,axis=-1)]
         min_costs = costs[choosen_bound.astype(bool)].reshape(costs.shape[:2])
         row_ind, col_ind = scipy.optimize.linear_sum_assignment(min_costs)

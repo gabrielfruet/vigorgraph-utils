@@ -101,7 +101,7 @@ def concatenate_lines(lines, threshold):
                 if revrs[0] < best_match[0]:
                     best_match = revrs
 
-            if best_match[IDX_DISTANCE] < threshold/2:
+            if best_match[IDX_DISTANCE] < threshold:
                 proper_line = np.array(best_match[IDX_PROPER_LINE])
                 if end_concat:
                     concatenated = np.concatenate([concatenated, proper_line])
