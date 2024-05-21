@@ -45,6 +45,9 @@ class Seedling:
 
         return img
 
+    def is_dead(self):
+        return self.hipocotilo is None and self.raiz_prim is None
+
 
 class SeedlingBuilder:
     def __init__(self):
