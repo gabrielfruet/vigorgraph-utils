@@ -147,7 +147,7 @@ def run2():
 
     raiz_prim, hipocotilo = split_image(gd_img)
     raiz_prim, hipocotilo = model.predict(INPUT_IMG_PATH, imgsz=1280)
-    raiz_prim_links_rdp, hipocotilo_links_rdp = find_lines(raiz_prim, hipocotilo, epsilon=5)
+    raiz_prim_links_rdp, hipocotilo_links_rdp = find_lines(raiz_prim, hipocotilo, epsilon=1)
 
     linked_raiz_prim = np.zeros_like(gd_img)
     linked_hipocotilo = np.zeros_like(gd_img)
