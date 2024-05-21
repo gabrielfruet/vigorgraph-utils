@@ -88,8 +88,8 @@ def run(input_img_paths):
         
         info = {
             'links': {
-                'hipocotilo': [sdl.hipocotilo for sdl in seedlings if sdl.hipocotilo is not None],
-                'raiz_prim': [sdl.raiz_prim for sdl in seedlings if sdl.raiz_prim is not None],
+                'hipocotilo': [sdl.hipocotilo.tolist() for sdl in seedlings if sdl.hipocotilo is not None],
+                'raiz_prim': [sdl.raiz_prim.tolist() for sdl in seedlings if sdl.raiz_prim is not None],
             },
             'numero_plantulas': len(seedlings),
             'numero_plantuas_ngerm': reduce(lambda acc, sdl: int(sdl.is_dead()) + acc, seedlings, 0) 
@@ -136,4 +136,4 @@ if __name__ == '__main__':
         results.append(result)
         
     merged_result = reduce(lambda x, y: x | y, results)
-    print(merged_result)
+    print(json.dumps(merged_result))

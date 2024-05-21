@@ -4,6 +4,4 @@ opencv_python==4.9.0.80
 plantcv==4.2.1
 scipy==1.13.0
 skimage==0.0
-tensorflow==2.16.1
-tensorflow_examples==0.1703207612.1461250479831370929614362828255168868146460245314
 ultralytics==8.2.18

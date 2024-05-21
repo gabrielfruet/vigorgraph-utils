@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import cv2 as cv
 
@@ -64,19 +65,6 @@ def concatenate_lines(lines, threshold):
         sets[root].append(i)
 
     # Concatenate all lines in the same set based on mode
-    """
-    result = []
-    for indices in sets.values():
-        set_lines = [lines[i] for i in indices]
-        concatenated = set_lines[0]
-        for idx in indices[1:]:
-            line = lines[idx]
-            mode = uf.mode[idx]
-            if mode in ['se', 'ee']:
-                line = line[::-1]  # Reverse the line if necessary
-            concatenated = np.concatenate((concatenated, line))
-        result.append(concatenated)
-    """
     result = []
     for indices in sets.values():
         set_lines = [lines[i] for i in indices]
