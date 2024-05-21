@@ -9,7 +9,7 @@ class Seedling:
     COLOR_HIPOCOTILO = (0,0,255)
     COLOR_COTILEDONE = (0,255,255)
     def __init__(self, raiz_prim, hipocotilo, cotiledone):
-        if hipocotilo is not None and raiz_prim is not None and False:
+        if hipocotilo is not None and raiz_prim is not None:
             hip_bound = hipocotilo[[0,-1]]
             rp_bound = raiz_prim[[0,-1]]
             dists = np.zeros((2,2))
