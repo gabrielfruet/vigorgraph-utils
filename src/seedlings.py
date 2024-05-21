@@ -21,29 +21,15 @@ class Seedling:
             flat_index = np.argmin(dists)
             row,col = np.unravel_index(flat_index, dists.shape)
 
-            #raiz_prim = np.insert(raiz_prim, hipocotilo[row], -col)
-            #hipocotilo = np.insert(hipocotilo, raiz_prim[col], -row)
-            print(row, col)
-            print(hipocotilo[row])
-            print(raiz_prim[col])
-            print(hipocotilo)
-            print(raiz_prim)
             if col == 0:
-                raiz_prim = np.r_[[hipocotilo[row]], raiz_prim]
+                raiz_prim = np.r_[[hipocotilo[-row]], raiz_prim]
             elif col == 1:
-                raiz_prim = np.r_[raiz_prim, [hipocotilo[row]]]
+                raiz_prim = np.r_[raiz_prim, [hipocotilo[-row]]]
 
             if row == 0:
-                hipocotilo = np.r_[[raiz_prim[col]], hipocotilo]
+                hipocotilo = np.r_[[raiz_prim[-col]], hipocotilo]
             elif row == 1:
-                hipocotilo = np.r_[hipocotilo, [raiz_prim[col]]]
-
-            print(raiz_prim)
-            print(hipocotilo)
-
-
-            print(hip_bound.shape)
-            print(rp_bound.shape)
+                hipocotilo = np.r_[hipocotilo, [raiz_prim[-col]]]
 
         self.raiz_prim = raiz_prim 
         self.hipocotilo = hipocotilo 
@@ -97,11 +83,11 @@ class SeedlingBuilder:
         hipo = self.get_hipocotilo()
         anchor = None
         if hipo is None:
-            #anchor = np.array([self.get_cotiledone(), self.get_cotiledone()])
-            anchor = self.get_cotiledone()
+            anchor = np.array([self.get_cotiledone(), self.get_cotiledone()])
+            #anchor = self.get_cotiledone()
         else:
-            #anchor = hipo[[0,-1]]
-            anchor = hipo[-1]
+            anchor = hipo[[0,-1]]
+            #anchor = hipo[-1]
         return anchor
 
     def build(self):
@@ -119,17 +105,12 @@ class SeedlingSolver:
         self.sdl_builders = [SeedlingBuilder().set_cotiledone(cot) for cot in self.cotiledone]
 
     def _match_hipocotilo(self):
-        hipocotilo_bounds = []
-        for hipo in self.hipocotilo_links:
-            hipocotilo_bounds.append(hipo[[0,-1]])
-
-        hipocotilo_bounds = np.array(hipocotilo_bounds)
+        hipocotilo_bounds = np.array([hipo[[0,-1]] for hipo in self.hipocotilo_links])
         expnd_hip = hipocotilo_bounds[None, ...]
         expnd_cot = self.cotiledone[:, None, None]
         # rows are cotiledone
         # columns are hipocotilo
         costs = np.linalg.norm(expnd_hip - expnd_cot, axis=-1)
-        print(costs.shape)
         choosen_bound = np.eye(2)[np.argmin(costs,axis=-1)]
         min_costs = costs[choosen_bound.astype(bool)].reshape(costs.shape[:2])
         row_ind, col_ind = scipy.optimize.linear_sum_assignment(min_costs)
@@ -143,27 +124,23 @@ class SeedlingSolver:
             else:
                 sdl_builder.set_hipocotilo(self.hipocotilo_links[j][::-1])
 
-            self.sdl_builders.append(sdl_builder)
-
     def _match_raiz_prim(self):
         choosen_anchors = np.array([sdl.get_anchor() for sdl in self.sdl_builders])
         raiz_prim_bounds = np.array([rp[[0,-1]] for rp in self.raiz_prim_links])
-        expnd_rp = raiz_prim_bounds[None, ...]
-        expnd_anchor = choosen_anchors[:, None, None]
+        expnd_rp = raiz_prim_bounds[np.newaxis, ..., np.newaxis, :, :]
+        expnd_anchor = choosen_anchors[:, np.newaxis, ..., np.newaxis, :]
+        print('rp shape', expnd_rp.shape)
+        print('anchor shape', expnd_anchor.shape)
         # rows are choosen anchors
         # columns are raiz prim
         costs = np.linalg.norm(expnd_rp - expnd_anchor, axis=-1)
-        choosen_bound = np.eye(2)[np.argmin(costs,axis=-1)]
-        min_costs = costs[choosen_bound.astype(bool)].reshape(costs.shape[:2])
-        row_ind, col_ind = scipy.optimize.linear_sum_assignment(min_costs)
+        min_costs3 = np.min(np.min(costs, axis=-2), axis=-1)
+        row_ind, col_ind = scipy.optimize.linear_sum_assignment(min_costs3)
 
         for i,j in zip(row_ind, col_ind):
-            if min_costs[i,j] >= self.MAX_COST: continue
+            if min_costs3[i,j] >= self.MAX_COST: continue
             sdl_builder = self.sdl_builders[i]
-            if np.argmax(choosen_bound[i,j]) == 0:
-                sdl_builder.set_raiz_prim(self.raiz_prim_links[j])
-            else:
-                sdl_builder.set_raiz_prim(self.raiz_prim_links[j][::-1])
+            sdl_builder.set_raiz_prim(self.raiz_prim_links[j])
 
 
     def match(self):

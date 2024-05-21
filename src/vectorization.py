@@ -47,10 +47,10 @@ def find_lines(raiz_prim: np.ndarray, hipocotilo: np.ndarray, epsilon=20) -> Tup
     hipocotilo_links = edge_linking(hipocotilo)
     raiz_prim_links_rdp = [rdp(link,epsilon=epsilon) for link in raiz_prim_links]
     hipocotilo_links_rdp = [rdp(link,epsilon=epsilon) for link in hipocotilo_links]
-    raiz_prim_links_rdp = [link for link in raiz_prim_links_rdp if line_length(link) > 10]
-    hipocotilo_links_rdp = [link for link in hipocotilo_links_rdp if line_length(link) > 10]
-    raiz_prim_links_rdp = concatenate_lines(raiz_prim_links_rdp, threshold=10)
-    hipocotilo_links_rdp = concatenate_lines(hipocotilo_links_rdp, threshold=10)
+    #raiz_prim_links_rdp = [link for link in raiz_prim_links_rdp if line_length(link) > 10]
+    #hipocotilo_links_rdp = [link for link in hipocotilo_links_rdp if line_length(link) > 10]
+    raiz_prim_links_rdp = concatenate_lines(raiz_prim_links_rdp, threshold=15)
+    hipocotilo_links_rdp = concatenate_lines(hipocotilo_links_rdp, threshold=15)
     return raiz_prim_links_rdp, hipocotilo_links_rdp
 
 def rm_bg(img: np.ndarray):
@@ -153,7 +153,7 @@ def run2():
     linked_hipocotilo = np.zeros_like(gd_img)
 
     input_img_wo_background = rm_bg(input_img)
-    contours, blobs_image = find_seed_blobs(input_img_wo_background, iterations=7)
+    contours, blobs_image = find_seed_blobs(input_img_wo_background, iterations=8)
     input_img_wo_background = cv.cvtColor(input_img_wo_background, cv.COLOR_GRAY2BGR)
     input_img_wo_background[:,:,:] = (0,0,0)
 
@@ -162,8 +162,8 @@ def run2():
     print(len(contours))
     for ct in contours:
         M = cv.moments(ct)
-        cX = int(M["m10"] / M["m00"])
-        cY = int(M["m01"] / M["m00"])
+        cX = int(M["m10"] / (M["m00"] + 0.001))
+        cY = int(M["m01"] / (M["m00"] + 0.001))
         cotyledone.append((cX,cY))
 
         input_img_wo_background = cv.circle(input_img_wo_background, (cX, cY), radius=5, color=(0,255,255), thickness=-1)

@@ -21,14 +21,20 @@ class YOLOProxy:
                 to_apply = hipocotilos_mask if class_id == 0 else raizes_prim_mask
                 cv.drawContours(to_apply, xyn[None],0, color=(255,255,255), thickness=-1)
 
-        while True:
-            cv.imshow('hipocotilo', hipocotilos_mask)
-            cv.imshow('raiz', raizes_prim_mask)
-            k = cv.waitKey(1000)
-            if ord('q') == k: break
-
         hipocotilos_mask = cv.cvtColor(hipocotilos_mask, cv.COLOR_BGR2GRAY) 
         raizes_prim_mask = cv.cvtColor(raizes_prim_mask, cv.COLOR_BGR2GRAY)
+
+        hipocotilos_mask = cv.dilate(hipocotilos_mask, np.ones((3,3)), iterations=3)
+        raizes_prim_mask = cv.dilate(raizes_prim_mask, np.ones((3,3)), iterations=3)
+
+        while False:
+            cv.imshow('hipocotilo', hipocotilos_mask)
+            cv.imshow('raiz', raizes_prim_mask)
+            k = cv.waitKey(1)
+            if ord('q') == k: break
+
+        cv.destroyAllWindows()
+
 
         return raizes_prim_mask, hipocotilos_mask
 
