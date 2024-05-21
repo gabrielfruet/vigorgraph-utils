@@ -106,7 +106,6 @@ def concatenate_lines(lines, threshold):
                 if end_concat:
                     concatenated = np.concatenate([concatenated, proper_line])
                 else:
-                    print(best_match[IDX_PROPER_LINE])
                     concatenated = np.concatenate([proper_line, concatenated])
 
                 set_lines.pop(best_match[IDX_LINE_POSITION])

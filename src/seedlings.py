@@ -45,7 +45,7 @@ class Seedling:
 
         return img
 
-    def is_dead(self):
+    def is_dead(self) -> bool:
         return self.hipocotilo is None and self.raiz_prim is None
 
 
@@ -132,8 +132,6 @@ class SeedlingSolver:
         raiz_prim_bounds = np.array([rp[[0,-1]] for rp in self.raiz_prim_links])
         expnd_rp = raiz_prim_bounds[np.newaxis, ..., np.newaxis, :, :]
         expnd_anchor = choosen_anchors[:, np.newaxis, ..., np.newaxis, :]
-        print('rp shape', expnd_rp.shape)
-        print('anchor shape', expnd_anchor.shape)
         # rows are choosen anchors
         # columns are raiz prim
         costs = np.linalg.norm(expnd_rp - expnd_anchor, axis=-1)

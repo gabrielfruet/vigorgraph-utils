@@ -6,36 +6,26 @@ class YOLOProxy:
     def __init__(self, *args, **kwargs):
         self.yolo = YOLO(*args, **kwargs)
 
-    def predict(self, image_path, **kwargs):
-        img = cv.imread(image_path)
-        results = self.yolo.predict(image_path, **kwargs)
-        hipocotilos_mask = np.zeros_like(img)
-        raizes_prim_mask = np.zeros_like(img)
-        height,width,_ = img.shape
-        for result in results:
+    def predict(self, imgs, **kwargs):
+        results = self.yolo.predict(imgs, verbose=False, **kwargs)
+        hipocotilos_masks = [np.zeros_like(img_i) for img_i in imgs]
+        raizes_prim_masks = [np.zeros_like(img_i) for img_i in imgs]
+        for i, result in enumerate(results):
+            height,width,_ = imgs[i].shape
             for mask, class_id in zip(result.masks, result.boxes.cls):
                 xyn = mask.xyn[0]
                 xyn[:, 0] = xyn[:, 0]*width
                 xyn[:, 1] = xyn[:, 1]*height
                 xyn = np.array(xyn, dtype=np.int32)
-                to_apply = hipocotilos_mask if class_id == 0 else raizes_prim_mask
+                to_apply = hipocotilos_masks[i] if class_id == 0 else raizes_prim_masks[i]
                 cv.drawContours(to_apply, xyn[None],0, color=(255,255,255), thickness=-1)
 
-        hipocotilos_mask = cv.cvtColor(hipocotilos_mask, cv.COLOR_BGR2GRAY) 
-        raizes_prim_mask = cv.cvtColor(raizes_prim_mask, cv.COLOR_BGR2GRAY)
+            hipocotilos_masks[i] = cv.cvtColor(hipocotilos_masks[i], cv.COLOR_BGR2GRAY) 
+            raizes_prim_masks[i] = cv.cvtColor(raizes_prim_masks[i], cv.COLOR_BGR2GRAY)
 
-        hipocotilos_mask = cv.dilate(hipocotilos_mask, np.ones((3,3)), iterations=3)
-        raizes_prim_mask = cv.dilate(raizes_prim_mask, np.ones((3,3)), iterations=3)
+            hipocotilos_masks[i] = cv.dilate(hipocotilos_masks[i], np.ones((3,3)), iterations=3)
+            raizes_prim_masks[i] = cv.dilate(raizes_prim_masks[i], np.ones((3,3)), iterations=3)
 
-        while False:
-            cv.imshow('hipocotilo', hipocotilos_mask)
-            cv.imshow('raiz', raizes_prim_mask)
-            k = cv.waitKey(1)
-            if ord('q') == k: break
-
-        cv.destroyAllWindows()
-
-
-        return raizes_prim_mask, hipocotilos_mask
+        return raizes_prim_masks, hipocotilos_masks
 
 

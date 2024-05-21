@@ -1,19 +1,18 @@
+from functools import reduce
 import logging
 import atexit
 import os
 import cv2 as cv
 import json
+import glob
+import argparse
 from findunion import concatenate_lines
-from utils import line_length, draw_line
-from skimage.morphology import skeletonize
-from pprint import pprint
+from utils import draw_line
 from typing import Tuple, List
-from matplotlib import pyplot as plt
 from algorithms import edge_linking, rdp
-from preprocessing import split_image, apply_skeletonize, find_background_color_range, find_background_mask
-from skimage.util import img_as_ubyte, img_as_float32
+from preprocessing import find_background_color_range, find_background_mask
+from skimage.util import img_as_ubyte
 from skimage import morphology 
-from plantcv import plantcv as pcv
 from seedlings import SeedlingSolver
 import numpy as np
 
@@ -61,54 +60,43 @@ def rm_bg(img: np.ndarray):
 
 def find_seed_blobs(input_img_wo_background: np.ndarray, iterations=5):
     input_img_wo_background = cv.erode(input_img_wo_background, np.ones((3,3)), iterations=iterations)
-    return [cnt for cnt in cv.findContours(input_img_wo_background, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)[0] if cv.contourArea(cnt) < 1000], input_img_wo_background
+    return [cnt for cnt in cv.findContours(input_img_wo_background, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)[0] if cv.contourArea(cnt) < 1000]
 
-def run2():
+def run(input_img_paths):
     model = YOLOProxy('./models/yolov8/best.pt')
+    imgs = []
+    for img_path in input_img_paths:
+        imgs.append(cv.imread(img_path))
+
     logging.getLogger().setLevel(logging.WARNING)
 
-    raiz_prim, hipocotilo = model.predict(INPUT_IMG_PATH, imgsz=1280)
-    raiz_prim_links_rdp, hipocotilo_links_rdp = find_lines(raiz_prim, hipocotilo, epsilon=1)
+    raiz_prim_masks, hipocotilo_masks = model.predict(imgs, imgsz=1280)
+    output = dict()
+    for hipocotilo_mask, raiz_prim_mask, img, im_path in zip(raiz_prim_masks, hipocotilo_masks, imgs, input_img_paths):
+        raiz_prim_links, hipocotilo_links = find_lines(raiz_prim_mask, hipocotilo_mask, epsilon=1)
+        input_img_wo_background = rm_bg(img) 
+        contours  = find_seed_blobs(input_img_wo_background, iterations=8)
+        cotyledone = []
+        for ct in contours:
+            M = cv.moments(ct)
+            cX = int(M["m10"] / (M["m00"] + 0.001))
+            cY = int(M["m01"] / (M["m00"] + 0.001))
+            cotyledone.append((cX,cY))
 
-    linked_raiz_prim = np.zeros_like(gd_img)
-    linked_hipocotilo = np.zeros_like(gd_img)
+        ss = SeedlingSolver(raiz_prim_links, hipocotilo_links, np.array(cotyledone), max_cost=200)
+        seedlings = ss.match()
+        
+        info = {
+            'links': {
+                'hipocotilo': [sdl.hipocotilo for sdl in seedlings if sdl.hipocotilo is not None],
+                'raiz_prim': [sdl.raiz_prim for sdl in seedlings if sdl.raiz_prim is not None],
+            },
+            'numero_plantulas': len(seedlings),
+            'numero_plantuas_ngerm': reduce(lambda acc, sdl: int(sdl.is_dead()) + acc, seedlings, 0) 
+        }
+        output[im_path] = info
 
-    input_img_wo_background = rm_bg(input_img)
-    contours, blobs_image = find_seed_blobs(input_img_wo_background, iterations=8)
-    input_img_wo_background = cv.cvtColor(input_img_wo_background, cv.COLOR_GRAY2BGR)
-    input_img_wo_background[:,:,:] = (0,0,0)
-
-    cv.drawContours(input_img_wo_background, contours, -1, (255,0,255), 0);
-    cotyledone = []
-    print(len(contours))
-    for ct in contours:
-        M = cv.moments(ct)
-        cX = int(M["m10"] / (M["m00"] + 0.001))
-        cY = int(M["m01"] / (M["m00"] + 0.001))
-        cotyledone.append((cX,cY))
-
-        input_img_wo_background = cv.circle(input_img_wo_background, (cX, cY), radius=5, color=(0,255,255), thickness=-1)
-
-    ss = SeedlingSolver(raiz_prim_links_rdp, hipocotilo_links_rdp, np.array(cotyledone), max_cost=200)
-    seedlings = ss.match()
-
-    seedlings_drawed = np.zeros_like(input_img_wo_background)
-
-    for sdl in seedlings:
-        seedlings_drawed = sdl.draw(seedlings_drawed)
-    
-    output = {
-        'links': {
-            'hipocotilo': [sdl.hipocotilo for sdl in seedlings],
-            'raiz_prim': [sdl.raiz_prim for sdl in seedlings],
-        },
-        'numero_plantulas': len(seedlings),
-        'numero_plantuas_ngerm': [sdl.is_dead for sdl in seedlings]
-    }
-    #json_output = json.dumps(output)
-    pprint(output)
-    #raiz_prim_skeleton = pcv.morphology.prune(pcv.morphology.skeletonize(raiz_prim))[0]
-    #hip_skeleton = pcv.morphology.prune(pcv.morphology.skeletonize(hipocotilo))[0]
+    """
     overlayed_img = cv.addWeighted(input_img, 0.5,seedlings_drawed, 0.5, 0)
 
     if SHOW_IMAGE:
@@ -128,7 +116,24 @@ def run2():
 
             if key == ord('q'):
                 break
-
+    """
+    return output
 
 if __name__ == '__main__':
-    run2()
+    parser = argparse.ArgumentParser(description="Process some integers.")
+    parser.add_argument('path', type=str, help='Path to the data file')
+    parser.add_argument('--batch_size', type=int, default=5, help='Size of each batch')
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    files = [os.path.abspath(path) for path in glob.glob('./dataset/1/input/*')]
+    n = len(files)
+    batch_size = args.batch_size
+    results = []
+    for i in range(0, n, batch_size):
+        result = run(files[i: min(i+batch_size, n)])
+        results.append(result)
+        
+    merged_result = reduce(lambda x, y: x | y, results)
+    print(merged_result)
