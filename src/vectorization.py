@@ -127,7 +127,7 @@ if __name__ == '__main__':
     # Parse arguments
     args = parser.parse_args()
 
-    files = [os.path.abspath(path) for path in glob.glob('./dataset/1/input/*')]
+    files = [os.path.abspath(path) for path in glob.glob(os.path.join(args.path, '*'))]
     n = len(files)
     batch_size = args.batch_size
     results = []
