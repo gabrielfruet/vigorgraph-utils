@@ -23,8 +23,8 @@ class YOLOProxy:
             hipocotilos_masks[i] = cv.cvtColor(hipocotilos_masks[i], cv.COLOR_BGR2GRAY) 
             raizes_prim_masks[i] = cv.cvtColor(raizes_prim_masks[i], cv.COLOR_BGR2GRAY)
 
-            hipocotilos_masks[i] = cv.dilate(hipocotilos_masks[i], np.ones((3,3)), iterations=3)
-            raizes_prim_masks[i] = cv.dilate(raizes_prim_masks[i], np.ones((3,3)), iterations=3)
+            hipocotilos_masks[i] = cv.dilate(hipocotilos_masks[i], np.ones((3,3)), iterations=1)
+            raizes_prim_masks[i] = cv.dilate(raizes_prim_masks[i], np.ones((3,3)), iterations=1)
 
         return raizes_prim_masks, hipocotilos_masks
 

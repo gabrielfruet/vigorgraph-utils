@@ -38,7 +38,7 @@ class Seedling:
     def draw(self, img):
         cv.circle(img, self.cotiledone, radius=5, color=Seedling.COLOR_COTILEDONE)
 
-        for line,color in zip([self.hipocotilo, self.raiz_prim], [Seedling.COLOR_HIPOCOTILO, Seedling.COLOR_RAIZ]):
+        for line,color in zip([self.hipocotilo, self.raiz_prim], [Seedling.COLOR_RAIZ, Seedling.COLOR_HIPOCOTILO]):
             if line is None: continue
             img = draw_line(img,line,color)
             img = draw_line(img, [self.cotiledone, line[0]], color=(255,127,0))

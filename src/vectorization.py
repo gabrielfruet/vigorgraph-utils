@@ -20,7 +20,7 @@ from yolo import YOLOProxy
 
 atexit.register(cv.destroyAllWindows)
 
-SHOW_IMAGE = False
+SHOW_IMAGE = True
 DATASET_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset"
 GD_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/ground_truth/1712091560511.jpg"
 INPUT_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/input/1712091560511.jpg"
@@ -48,9 +48,20 @@ def find_lines(raiz_prim: np.ndarray, hipocotilo: np.ndarray, epsilon=20) -> Tup
     hipocotilo_links_rdp = [rdp(link,epsilon=epsilon) for link in hipocotilo_links]
     #raiz_prim_links_rdp = [link for link in raiz_prim_links_rdp if line_length(link) > 10]
     #hipocotilo_links_rdp = [link for link in hipocotilo_links_rdp if line_length(link) > 10]
-    raiz_prim_links_rdp = concatenate_lines(raiz_prim_links_rdp, threshold=15)
-    hipocotilo_links_rdp = concatenate_lines(hipocotilo_links_rdp, threshold=15)
+    raiz_prim_links_rdp = concatenate_lines(raiz_prim_links_rdp, threshold=20)
+    hipocotilo_links_rdp = concatenate_lines(hipocotilo_links_rdp, threshold=20)
     return raiz_prim_links_rdp, hipocotilo_links_rdp
+
+def resize_image(image, max_size):
+    height, width = image.shape[:2]
+    
+    if max(height, width) > max_size:
+        scaling_factor = max_size / float(max(height, width))
+        new_size = (int(width * scaling_factor), int(height * scaling_factor))
+        return cv.resize(image, new_size, interpolation=cv.INTER_AREA)
+
+    return image
+
 
 def rm_bg(img: np.ndarray):
     color_range = find_background_color_range(img)
@@ -66,11 +77,14 @@ def run(input_img_paths):
     model = YOLOProxy('./models/yolov8/best.pt')
     imgs = []
     for img_path in input_img_paths:
-        imgs.append(cv.imread(img_path))
+        imgs.append(resize_image(cv.imread(img_path), 1200))
+        #imgs.append(cv.imread(img_path))
 
+    #print(imgs[0].shape)
+    #exit(1)
     logging.getLogger().setLevel(logging.WARNING)
 
-    raiz_prim_masks, hipocotilo_masks = model.predict(imgs, imgsz=1280)
+    raiz_prim_masks, hipocotilo_masks = model.predict(imgs, imgsz=1216)
     output = dict()
     for hipocotilo_mask, raiz_prim_mask, img, im_path in zip(raiz_prim_masks, hipocotilo_masks, imgs, input_img_paths):
         raiz_prim_links, hipocotilo_links = find_lines(raiz_prim_mask, hipocotilo_mask, epsilon=1)
@@ -83,7 +97,7 @@ def run(input_img_paths):
             cY = int(M["m01"] / (M["m00"] + 0.001))
             cotyledone.append((cX,cY))
 
-        ss = SeedlingSolver(raiz_prim_links, hipocotilo_links, np.array(cotyledone), max_cost=200)
+        ss = SeedlingSolver(raiz_prim_links, hipocotilo_links, np.array(cotyledone), max_cost=100)
         seedlings = ss.match()
         
         info = {
@@ -95,6 +109,20 @@ def run(input_img_paths):
             'numero_plantuas_ngerm': reduce(lambda acc, sdl: int(sdl.is_dead()) + acc, seedlings, 0) 
         }
         output[im_path] = info
+        if SHOW_IMAGE:
+            seedlings_drawed = np.zeros_like(img)
+            for sdl in seedlings:
+                seedlings_drawed = sdl.draw(seedlings_drawed)
+
+            overlayed_img = cv.addWeighted(img, 0.5,seedlings_drawed, 0.5, 0)
+            while True:
+                cv.imshow('overlayed_img', overlayed_img)
+                cv.imshow('hip_mask', hipocotilo_mask)
+                cv.imshow('raiz_mask', raiz_prim_mask)
+                key = cv.waitKey(1) & 0xFF
+
+                if key == ord('q'):
+                    break
 
     """
     overlayed_img = cv.addWeighted(input_img, 0.5,seedlings_drawed, 0.5, 0)
