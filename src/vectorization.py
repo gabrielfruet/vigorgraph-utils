@@ -102,8 +102,11 @@ def run(input_img_paths):
         
         info = {
             'links': {
-                'hipocotilo': [sdl.hipocotilo.tolist() for sdl in seedlings if sdl.hipocotilo is not None],
-                'raiz_prim': [sdl.raiz_prim.tolist() for sdl in seedlings if sdl.raiz_prim is not None],
+                i: {
+                    'hipocotilo': sdl.hipocotilo.tolist() if sdl.hipocotilo is not None else None,
+                    'raiz_prim': sdl.raiz_prim.tolist() if sdl.raiz_prim is not None else None
+                }
+                for i,sdl in enumerate(seedlings)
             },
             'numero_plantulas': len(seedlings),
             'numero_plantuas_ngerm': reduce(lambda acc, sdl: int(sdl.is_dead()) + acc, seedlings, 0) 
