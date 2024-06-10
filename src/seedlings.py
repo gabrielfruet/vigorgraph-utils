@@ -34,6 +34,9 @@ class Seedling:
         self.raiz_prim = raiz_prim 
         self.hipocotilo = hipocotilo 
         self.cotiledone = cotiledone
+        if hipocotilo is not None and type(hipocotilo.tolist()) == bool:
+            raise RuntimeError("Something went wrong")
+            
 
     def draw(self, img):
         cv.circle(img, self.cotiledone, radius=5, color=Seedling.COLOR_COTILEDONE)

@@ -20,7 +20,7 @@ from yolo import YOLOProxy
 
 atexit.register(cv.destroyAllWindows)
 
-SHOW_IMAGE = True
+SHOW_IMAGE = False
 DATASET_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset"
 GD_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/ground_truth/1712091560511.jpg"
 INPUT_IMG_PATH = "/home/fruet/dev/python/vigorgraph-utils/dataset/cultivar_5_azul/input/1712091560511.jpg"
@@ -60,7 +60,7 @@ def resize_image(image, max_size):
         new_size = (int(width * scaling_factor), int(height * scaling_factor))
         return cv.resize(image, new_size, interpolation=cv.INTER_AREA)
 
-    return image
+    return image 
 
 
 def rm_bg(img: np.ndarray):
@@ -76,12 +76,11 @@ def find_seed_blobs(input_img_wo_background: np.ndarray, iterations=5):
 def run(input_img_paths):
     model = YOLOProxy('./models/yolov8/best.pt')
     imgs = []
+    orig_img_sizes = []
     for img_path in input_img_paths:
-        imgs.append(resize_image(cv.imread(img_path), 1200))
-        #imgs.append(cv.imread(img_path))
+        img = cv.imread(img_path)
+        imgs.append(resize_image(img, 1200))
 
-    #print(imgs[0].shape)
-    #exit(1)
     logging.getLogger().setLevel(logging.WARNING)
 
     raiz_prim_masks, hipocotilo_masks = model.predict(imgs, imgsz=1216)
@@ -99,12 +98,15 @@ def run(input_img_paths):
 
         ss = SeedlingSolver(raiz_prim_links, hipocotilo_links, np.array(cotyledone), max_cost=100)
         seedlings = ss.match()
+
+        # turning from y,x shape to x,y as coordinates are xy in seedlings.
+        conversion_ratio = (1/np.array(img.shape[:2]))[::-1]
         
         info = {
             'links': {
                 i: {
-                    'hipocotilo': sdl.hipocotilo.tolist() if sdl.hipocotilo is not None else None,
-                    'raiz_prim': sdl.raiz_prim.tolist() if sdl.raiz_prim is not None else None
+                    'hipocotilo': (sdl.hipocotilo * conversion_ratio).tolist() if sdl.hipocotilo is not None else None,
+                    'raiz_prim': (sdl.raiz_prim * conversion_ratio).tolist() if sdl.raiz_prim is not None else None
                 }
                 for i,sdl in enumerate(seedlings)
             },
